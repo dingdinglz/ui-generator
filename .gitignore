@@ -1,0 +1,6 @@
+data/
+web/
+config.json
+ERROR.LOG
+ui
+.DS_Store
