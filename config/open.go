@@ -2,6 +2,7 @@ package config
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"ui/global"
@@ -16,6 +17,8 @@ func OpenConfig() error {
 			Model: ModelConfig{},
 		}, "", "    ")
 		os.WriteFile(filepath.Join(global.RootPath, "config.json"), data, os.ModePerm)
+		fmt.Println("请修改config.json文件后重新启动！")
+		os.Exit(0)
 	}
 	data, _ := os.ReadFile(filepath.Join(global.RootPath, "config.json"))
 	e := json.Unmarshal(data, &ConfigVar)
