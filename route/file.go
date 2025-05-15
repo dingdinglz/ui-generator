@@ -1,6 +1,7 @@
 package route
 
 import (
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -34,4 +35,35 @@ func FileUpdateRoute(c *fiber.Ctx) error {
 	return c.JSON(map[string]interface{}{
 		"message": "ok",
 	})
+}
+
+type Task struct {
+	ID     int    `json:"id"`
+	Name   string `json:"name"`
+	Status int    `json:"status"`
+}
+
+func FileListRoute(c *fiber.Ctx) error {
+	id := c.Query("id")
+	if !tool.FileExist(filepath.Join(global.RootPath, "data", id)) {
+		return c.SendStatus(403)
+	}
+	cnt := 1
+	var res []Task
+	filepath.Walk(filepath.Join(global.RootPath, "data", id), func(path string, info fs.FileInfo, err error) error {
+		if info.IsDir() {
+			return nil
+		}
+		if info.Name() == "messages.json" {
+			return nil
+		}
+		res = append(res, Task{
+			ID:     cnt,
+			Name:   info.Name(),
+			Status: 2,
+		})
+		cnt++
+		return nil
+	})
+	return c.JSON(res)
 }
