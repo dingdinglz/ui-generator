@@ -115,6 +115,8 @@ func GenerateRoute(ctx *fiber.Ctx) error {
 			SendSSEMessage(w, MakeGenerateMessage("task_end", item.Name))
 		}
 		SendSSEMessage(w, MakeGenerateMessage("update", "生成完成！如遇任何问题请联系dinglz"))
+		messageSave, _ := json.Marshal(messages)
+		os.WriteFile(filepath.Join(global.RootPath, "data", sessionID, "messages.json"), messageSave, os.ModePerm)
 		SendSSEMessage(w, MakeGenerateMessage("end", "生成完成"))
 	}))
 	return nil
