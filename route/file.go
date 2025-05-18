@@ -1,6 +1,7 @@
 package route
 
 import (
+	"encoding/json"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -8,6 +9,7 @@ import (
 	"ui/global"
 	"ui/tool"
 
+	"github.com/dingdinglz/openai"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -32,6 +34,7 @@ func FileUpdateRoute(c *fiber.Ctx) error {
 		return c.SendStatus(403)
 	}
 	os.WriteFile(filepath.Join(global.RootPath, "data", id, file), []byte(content), os.ModePerm)
+	updateHistoryMessage(id, file, content)
 	return c.JSON(map[string]interface{}{
 		"message": "ok",
 	})
@@ -66,4 +69,22 @@ func FileListRoute(c *fiber.Ctx) error {
 		return nil
 	})
 	return c.JSON(res)
+}
+
+func updateHistoryMessage(id string, name string, content string) {
+	workFile := filepath.Join(global.RootPath, "data", id, "messages.json")
+	if !tool.FileExist(workFile) {
+		return
+	}
+	historyMessages := []openai.Message{}
+	j, _ := os.ReadFile(workFile)
+	json.Unmarshal(j, &historyMessages)
+	for i := 0; i < len(historyMessages); i++ {
+		if historyMessages[i].Role == "user" && historyMessages[i].Content == name {
+			historyMessages[i+1].Content = content
+			break
+		}
+	}
+	res, _ := json.Marshal(historyMessages)
+	os.WriteFile(workFile, res, os.ModePerm)
 }
