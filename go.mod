@@ -3,7 +3,7 @@ module ui
 go 1.23.5
 
 require (
-	github.com/dingdinglz/openai v1.1.2
+	github.com/dingdinglz/openai v1.1.3-0.20250519080230-88a1a9c8d26e
 	github.com/gofiber/fiber/v2 v2.52.6
 	github.com/google/uuid v1.6.0
 	github.com/valyala/fasthttp v1.51.0
