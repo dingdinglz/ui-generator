@@ -46,8 +46,10 @@ func GenerateRoute(ctx *fiber.Ctx) error {
 	ctx.Set("Cache-Control", "no-cache")
 	ctx.Set("Connection", "keep-alive")
 	ctx.Set("Transfer-Encoding", "chunked")
-	idea := ctx.Query("idea")
-	mode := ctx.Query("mode")
+	requestMap := make(map[string]interface{})
+	json.Unmarshal(ctx.Body(), &requestMap)
+	idea, _ := requestMap["idea"].(string)
+	mode, _ := requestMap["mode"].(string)
 	ctx.Status(fiber.StatusOK).Context().SetBodyStreamWriter(fasthttp.StreamWriter(func(w *bufio.Writer) {
 		if idea == "" {
 			SendSSEMessage(w, MakeGenerateMessage("error", "idea不能为空"))
