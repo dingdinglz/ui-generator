@@ -162,7 +162,50 @@ func ChangeFileRoute(ctx *fiber.Ctx) error {
 		fileContent = tool.StringBetween(fileContent, "```html", "```")
 		os.WriteFile(filepath.Join(workPath, name), []byte(fileContent), os.ModePerm)
 		updateHistoryMessage(id, name, fileContent)
-		SendSSEMessage(w, MakeGenerateMessage("update", "生成完成！如遇任何问题请联系dinglz"))
+		SendSSEMessage(w, MakeGenerateMessage("end", "生成完成"))
+	}))
+	return nil
+}
+
+func ContinueRoute(ctx *fiber.Ctx) error {
+	id := ctx.Query("id")
+	file := ctx.Query("file")
+	ctx.Status(fiber.StatusOK).Context().SetBodyStreamWriter(fasthttp.StreamWriter(func(w *bufio.Writer) {
+		if id == "" || file == "" {
+			SendSSEMessage(w, MakeGenerateMessage("error", "不能为空！"))
+			return
+		}
+		workPath := filepath.Join(global.RootPath, "data", id)
+		if !tool.FileExist(filepath.Join(workPath, "messages.json")) {
+			SendSSEMessage(w, MakeGenerateMessage("error", "历史记录缺失！"))
+			return
+		}
+		historyContent, _ := os.ReadFile(filepath.Join(workPath, "messages.json"))
+		historyMessages := []openai.Message{}
+		fileContent := ""
+		json.Unmarshal(historyContent, &historyMessages)
+		for i := 0; i < len(historyMessages); i++ {
+			if historyMessages[i].Content == file && historyMessages[i].Role == "user" {
+				historyMessages = historyMessages[:i+2]
+				fileContent = historyMessages[i+1].Content
+				break
+			}
+		}
+		historyMessages = append(historyMessages, openai.Message{
+			Role:    "user",
+			Content: "继续生成" + file + "未生成完成的部分，紧接着上一条消息继续生成即可，不需要生成额外内容",
+		})
+		e := global.OpenaiClient.ChatStream(config.ConfigVar.Model.Model, historyMessages, func(s string) {
+			fileContent += s
+			SendSSEMessage(w, MakeGenerateMessage("update", fileContent))
+		})
+		if e != nil {
+			SendSSEMessage(w, MakeGenerateMessage("error", e.Error()))
+			return
+		}
+		fileContent = tool.StringBetween(fileContent, "```html", "```")
+		os.WriteFile(filepath.Join(workPath, file), []byte(fileContent), os.ModePerm)
+		updateHistoryMessage(id, file, fileContent)
 		SendSSEMessage(w, MakeGenerateMessage("end", "生成完成"))
 	}))
 	return nil
