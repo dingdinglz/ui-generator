@@ -210,3 +210,61 @@ func ContinueRoute(ctx *fiber.Ctx) error {
 	}))
 	return nil
 }
+
+func AddRoute(ctx *fiber.Ctx) error {
+	id := ctx.Query("id")
+	file := ctx.Query("file")
+	idea := ctx.Query("idea")
+	ctx.Status(fiber.StatusOK).Context().SetBodyStreamWriter(fasthttp.StreamWriter(func(w *bufio.Writer) {
+		if id == "" || file == "" || idea == "" {
+			SendSSEMessage(w, MakeGenerateMessage("error", "不能为空！"))
+			return
+		}
+		workPath := filepath.Join(global.RootPath, "data", id)
+		if !tool.FileExist(filepath.Join(workPath, "messages.json")) {
+			SendSSEMessage(w, MakeGenerateMessage("error", "历史记录缺失！"))
+			return
+		}
+		historyContent, _ := os.ReadFile(filepath.Join(workPath, "messages.json"))
+		historyMessages := []openai.Message{}
+		json.Unmarshal(historyContent, &historyMessages)
+		taskListData := historyMessages[2].Content
+		taskListData = tool.StringBetweenContain(taskListData, "{", "}")
+		taskList := TaskList{}
+		e := json.Unmarshal([]byte(taskListData), &taskList)
+		if e != nil {
+			SendSSEMessage(w, MakeGenerateMessage("error", e.Error()))
+			return
+		}
+		taskList.Data = append(taskList.Data, struct {
+			Name        string "json:\"name\""
+			Description string "json:\"description\""
+		}{Name: file, Description: idea})
+		taskListData2, _ := json.Marshal(taskList)
+		taskListData = string(taskListData2)
+		historyMessages[2].Content = taskListData
+		historyMessages = append(historyMessages, openai.Message{
+			Role:    "user",
+			Content: file,
+		})
+		fileContent := ""
+		e = global.OpenaiClient.ChatStream(config.ConfigVar.Model.Model, historyMessages, func(s string) {
+			fileContent += s
+			SendSSEMessage(w, MakeGenerateMessage("update", fileContent))
+		})
+		if e != nil {
+			SendSSEMessage(w, MakeGenerateMessage("error", e.Error()))
+			return
+		}
+		fileContent = tool.StringBetween(fileContent, "```html", "```")
+		os.WriteFile(filepath.Join(workPath, file), []byte(fileContent), os.ModePerm)
+		historyMessages = append(historyMessages, openai.Message{
+			Content: fileContent,
+			Role:    "assistant",
+		})
+		saveMessage, _ := json.Marshal(historyMessages)
+		os.WriteFile(filepath.Join(workPath, "messages.json"), saveMessage, os.ModePerm)
+		SendSSEMessage(w, MakeGenerateMessage("end", "生成完成"))
+	}))
+	return nil
+}

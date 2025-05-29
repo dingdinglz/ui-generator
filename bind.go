@@ -14,4 +14,5 @@ func BindRoutes(server *fiber.App) {
 	apiGroup.Get("/load", route.FileListRoute)
 	apiGroup.Get("/change", route.ChangeFileRoute)
 	apiGroup.Get("/continue", route.ContinueRoute)
+	apiGroup.Get("/add", route.AddRoute)
 }
