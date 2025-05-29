@@ -1,7 +1,9 @@
 package route
 
 import (
+	"archive/zip"
 	"encoding/json"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -57,7 +59,7 @@ func FileListRoute(c *fiber.Ctx) error {
 		if info.IsDir() {
 			return nil
 		}
-		if info.Name() == "messages.json" {
+		if info.Name() == "messages.json" || info.Name() == "src.zip" {
 			return nil
 		}
 		res = append(res, Task{
@@ -87,4 +89,54 @@ func updateHistoryMessage(id string, name string, content string) {
 	}
 	res, _ := json.Marshal(historyMessages)
 	os.WriteFile(workFile, res, os.ModePerm)
+}
+
+func DownLoadAllRoute(ctx *fiber.Ctx) error {
+	id := ctx.Query("id")
+	if id == "" {
+		return ctx.SendString("无效id")
+	}
+	workPath := filepath.Join(global.RootPath, "data", id)
+	zipFile, e := os.Create(filepath.Join(workPath, "src.zip"))
+	if e != nil {
+		return ctx.SendString("创建文件失败！" + e.Error())
+	}
+	defer zipFile.Close()
+	zipWriter := zip.NewWriter(zipFile)
+	defer zipWriter.Close()
+	e = filepath.Walk(workPath, func(path string, info fs.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			return nil
+		}
+		if info.Name() == "messages.json" || info.Name() == "src.zip" {
+			return nil
+		}
+		header, e := zip.FileInfoHeader(info)
+		if e != nil {
+			return e
+		}
+		relPath, e := filepath.Rel(workPath, path)
+		if e != nil {
+			return e
+		}
+		header.Name = relPath
+		writer, e := zipWriter.CreateHeader(header)
+		if e != nil {
+			return e
+		}
+		file, e := os.Open(path)
+		if e != nil {
+			return e
+		}
+		defer file.Close()
+		_, e = io.Copy(writer, file)
+		return e
+	})
+	if e != nil {
+		return ctx.SendString("压缩错误！" + e.Error())
+	}
+	return ctx.Redirect("/" + id + "/src.zip")
 }
