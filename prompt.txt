@@ -24,6 +24,7 @@
 比如```json
 {"data":[{"name":"index.html","description":"展示主页",{"name":"show.html","description":"介绍"}]}
 ```是不合法的，而{"data":[{"name":"index.html","description":"展示主页",{"name":"show.html","description":"介绍"}]}是合法的，也不要自动生成index.html
+所有文件应该位于同一个文件夹中，比如admin.html是合法的，而admin/index.html时不合法的
 当我指定要生成的文件时，比如我紧接着说index.html，返回生成文件的内容，同样的，仅需要返回文件的纯内容即可，不需要markdown格式，比如：
 ```html
 html文件内容
