@@ -268,3 +268,56 @@ func AddRoute(ctx *fiber.Ctx) error {
 	}))
 	return nil
 }
+
+func DeleteRoute(ctx *fiber.Ctx) error {
+	id := ctx.Query("id")
+	file := ctx.Query("file")
+	if id == "" || file == "" {
+		return ctx.SendString("参数不能为空！")
+	}
+	workPath := filepath.Join(global.RootPath, "data", id)
+	if !tool.FileExist(filepath.Join(workPath, "messages.json")) {
+		return ctx.SendString("对话记录错误！")
+	}
+	historyContent, _ := os.ReadFile(filepath.Join(workPath, "messages.json"))
+	historyMessages := []openai.Message{}
+	json.Unmarshal(historyContent, &historyMessages)
+	taskListData := historyMessages[2].Content
+	taskListData = tool.StringBetweenContain(taskListData, "{", "}")
+	taskList := TaskList{}
+	e := json.Unmarshal([]byte(taskListData), &taskList)
+	if e != nil {
+		return ctx.SendString(e.Error())
+	}
+	newTaskList := []struct {
+		Name        string "json:\"name\""
+		Description string "json:\"description\""
+	}{}
+	for i := 0; i < len(taskList.Data); i++ {
+		if taskList.Data[i].Name == file {
+			newTaskList = taskList.Data[:i]
+			newTaskList = append(newTaskList, taskList.Data[i+1:]...)
+			break
+		}
+	}
+	taskList.Data = newTaskList
+	taskListData2, _ := json.Marshal(taskList)
+	taskListData = string(taskListData2)
+	historyMessages[2].Content = taskListData
+	flag := 0
+	for i := 0; i < len(historyMessages); i++ {
+		if historyMessages[i].Content == file {
+			flag = i
+			break
+		}
+	}
+	if flag == 0 {
+		return ctx.SendString("未找到该文件")
+	}
+	newHistoryMessages := historyMessages[:flag]
+	newHistoryMessages = append(newHistoryMessages, historyMessages[flag+2:]...)
+	newSave, _ := json.Marshal(newHistoryMessages)
+	os.WriteFile(filepath.Join(workPath, "messages.json"), newSave, os.ModePerm)
+	os.Remove(filepath.Join(workPath, file))
+	return ctx.SendString("ok")
+}

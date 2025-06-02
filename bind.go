@@ -16,4 +16,5 @@ func BindRoutes(server *fiber.App) {
 	apiGroup.Get("/continue", route.ContinueRoute)
 	apiGroup.Get("/add", route.AddRoute)
 	apiGroup.Get("/download", route.DownLoadAllRoute)
+	apiGroup.Get("/delete", route.DeleteRoute)
 }
